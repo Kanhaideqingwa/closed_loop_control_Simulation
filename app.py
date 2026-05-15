@@ -360,18 +360,20 @@ def compute_metrics(history):
     target = df['target'].iloc[0]
     attention = df['attention']
 
-    # 稳态误差：最后 min(20, len) 步的平均绝对误差
-    tail_n = min(20, len(df) // 4)
+    # 稳态误差（百分比）：最后 1/4 步的误差绝对值均值，误差 = (target - attention)
+    # 再除以 target 归一化后乘以 100，表示偏离目标专注度的百分比
+    tail_n = max(5, len(df) // 4)
     steady_error = df['error'].tail(tail_n).abs().mean()
+    steady_error_pct = (steady_error / target) * 100 if target > 0 else 0
 
-    # 超调量
+    # 超调量（百分比）：实际注意力超出目标的百分比
     max_att = attention.max()
     overshoot = max(0, (max_att - target) / target * 100) if target > 0 else 0
 
-    # 控制抖振：相邻步 D 差值的标准差
+    # 控制抖振：相邻步控制量 D 差值的标准差，衡量控制器输出波动程度
     chatter = df['D'].diff().dropna().std()
 
-    # 响应时间：专注度首次进入 target±5% 且后续不离开
+    # 响应时间：专注度首次进入 target±5% 且之后不再离开所需步数
     band = target * 0.05
     in_band = (attention - target).abs() <= band
     settling_time = len(df)
@@ -383,7 +385,7 @@ def compute_metrics(history):
                 break
 
     return {
-        "steady_error": round(steady_error, 4),
+        "steady_error": round(steady_error_pct, 2),
         "overshoot": round(overshoot, 2),
         "chatter": round(chatter, 3),
         "settling_time": settling_time,
@@ -566,8 +568,8 @@ m1, m2, m3, m4 = st.columns(4)
 
 with m1:
     st.markdown(f"""<div class="metric-card green">
-        <div class="metric-label">稳态误差</div>
-        <div class="metric-value">{metrics['steady_error']:.4f}</div>
+        <div class="metric-label">稳态误差 (%)</div>
+        <div class="metric-value">{metrics['steady_error']:.2f}%</div>
     </div>""", unsafe_allow_html=True)
 
 with m2:
@@ -596,7 +598,7 @@ fig1 = make_subplots(specs=[[{"secondary_y": True}]])
 
 fig1.add_trace(
     go.Scatter(
-        x=df['t'], y=df['target'],
+        x=df['t'], y=df['target'] * 100,
         name="目标专注度",
         mode="lines",
         line=dict(dash="dash", color="#1f77b4", width=2),
@@ -605,7 +607,7 @@ fig1.add_trace(
 )
 fig1.add_trace(
     go.Scatter(
-        x=df['t'], y=df['attention'],
+        x=df['t'], y=df['attention'] * 100 * 100,
         name="实际专注度",
         mode="lines",
         line=dict(color="#17becf", width=2),
@@ -634,8 +636,8 @@ fig1.add_trace(
 )
 
 fig1.update_xaxes(title_text="时间步 t", showgrid=True, gridcolor='rgba(128,128,128,0.15)')
-fig1.update_yaxes(title_text="专注度", range=[0, 1.05], secondary_y=False,
-                   tickformat=".2f", gridcolor='rgba(128,128,128,0.15)')
+fig1.update_yaxes(title_text="专注度 (%)", range=[0, 105], secondary_y=False,
+                   tickformat=".0f", gridcolor='rgba(128,128,128,0.15)')
 fig1.update_yaxes(title_text="难度 / 控制量 D", range=[-2, 105], secondary_y=True,
                    gridcolor='rgba(128,128,128,0.08)')
 
@@ -662,7 +664,7 @@ sampled_indices = np.linspace(0, total_steps - 1, sample_count, dtype=int)
 for idx_pos, idx in enumerate(sampled_indices):
     t_val = int(df['t'].iloc[idx])
     opt = df['optimal'].iloc[idx]
-    att_curve = np.exp(-((D_grid - opt) ** 2) / st.session_state["C"])
+    att_curve = np.exp(-((D_grid - opt) ** 2) / st.session_state["C"]) * 100
 
     # 颜色插值
     frac = idx_pos / max(sample_count - 1, 1)
@@ -681,7 +683,7 @@ for idx_pos, idx in enumerate(sampled_indices):
     ))
     # 峰值标注
     fig2.add_trace(go.Scatter(
-        x=[opt], y=[1.0],
+        x=[opt], y=[100],
         mode="markers",
         marker=dict(color=color, size=6, symbol="x"),
         name=f"峰值 t={t_val}",
@@ -690,7 +692,7 @@ for idx_pos, idx in enumerate(sampled_indices):
 
 # 实际工作点轨迹
 fig2.add_trace(go.Scatter(
-    x=df['D'], y=df['attention'],
+    x=df['D'], y=df['attention'] * 100,
     mode="markers+lines",
     name="实际轨迹",
     line=dict(color="#00ff88", width=2),
@@ -704,7 +706,7 @@ fig2.add_trace(go.Scatter(
 ))
 
 fig2.update_xaxes(title_text="难度 D", range=[0, 100], gridcolor='rgba(128,128,128,0.15)')
-fig2.update_yaxes(title_text="专注度", range=[0, 1.05], tickformat=".2f", gridcolor='rgba(128,128,128,0.15)')
+fig2.update_yaxes(title_text="专注度 (%)", range=[0, 105], tickformat=".0f", gridcolor='rgba(128,128,128,0.15)')
 fig2.update_layout(
     template="plotly_white",
     height=450,
@@ -719,23 +721,84 @@ st.markdown("---")
 st.subheader("📋 仿真数据表 (最近 20 步)")
 
 display_df = df.tail(20).copy()
+# 误差转为百分比 (error = target - attention, 归一化到 target)
+display_df['error_pct'] = (display_df['error'] / display_df['target'] * 100).round(2)
+display_df['attention_pct'] = (display_df['attention'] * 100).round(1)
 display_df = display_df.rename(columns={
     't': '时间步',
     'D': '控制量 D',
-    'attention': '专注度',
+    'attention_pct': '专注度 (%)',
     'optimal': '最佳难度',
-    'error': '误差',
-    'target': '目标',
+    'error_pct': '误差 (%)',
 })
-display_df = display_df[['时间步', '控制量 D', '专注度', '最佳难度', '误差']]
+display_df = display_df[['时间步', '控制量 D', '专注度 (%)', '最佳难度', '误差 (%)']]
 
 st.dataframe(
     display_df.style.format({
         '控制量 D': '{:.2f}',
-        '专注度': '{:.4f}',
+        '专注度 (%)': '{:.1f}',
         '最佳难度': '{:.2f}',
-        '误差': '{:.4f}',
+        '误差 (%)': '{:.2f}',
     }),
     use_container_width=True,
     height=340,
 )
+
+# ── 指标说明 ──
+st.markdown("---")
+with st.expander("📖 控制指标与图表说明", expanded=False):
+    col_a, col_b = st.columns(2)
+    with col_a:
+        st.markdown("""
+### 📊 评价指标卡片
+
+**稳态误差 (%)**
+仿真后期（最后 1/4 步）的实际专注度与目标专注度之间的平均偏差百分比。值越小说明控制器越精确地锁定了目标。
+- 优秀: < 2%
+- 良好: 2% ~ 10%
+- 较差: > 10%
+
+**超调量 (%)**
+实际专注度在整个仿真过程中超出目标值的最大幅度百分比。超调过大意味着控制器"用力过猛"，把难度调到远超需要的程度。
+- PID/离散PID 通常超调较小
+- 贝叶斯优化因主动探索可能有较大超调
+
+**控制抖振**
+相邻两步之间控制量 D 变化幅度的标准差。抖振大说明控制器输出不稳定、频繁大幅调整——这在工程上意味着执行机构磨损大。
+- 贝叶斯优化天然抖振较大（探索行为）
+- 离散PID 因量化输出抖振较小
+
+**响应时间 (步)**
+专注度从仿真开始到首次进入目标值 ±5% 范围并且不再偏离所需的步数。越短说明控制器越快找到合适的难度。
+""")
+    with col_b:
+        st.markdown("""
+### 📈 时域响应曲线
+
+**左 Y 轴 —— 专注度 (%)**
+- **蓝色虚线**: 目标专注度（你在控制面板设置的值）
+- **青色实线**: 实际专注度（大脑模型在每一步给出的真实反馈）
+- 两条线越接近，说明控制效果越好
+
+**右 Y 轴 —— 难度 / 控制量 D**
+- **红色实线**: 控制器每步下发的难度值 D (0-100)
+- **紫色点线**: 大脑当前的最优难度 Optimal(t)，随时间右移模拟学习效应
+- 红色线应该追踪紫色线的趋势——说明控制器在适应玩家技能提升
+
+### 🔬 倒U型曲线动态演化
+
+- **彩色曲线**: 从蓝色(早期)渐变到红色(后期)的多条倒U型曲线，展示最优难度随学习效应向右移动的过程
+- **× 标记**: 每条曲线的理论峰值点(注意力=100%)
+- **绿色轨迹**: 仿真中控制器实际选择的(D, 专注度)工作点
+- 理想情况：绿色轨迹始终靠近当前曲线的峰值
+
+### 📋 仿真数据表
+
+| 列名 | 含义 |
+|------|------|
+| 时间步 | 当前仿真步数 t |
+| 控制量 D | 控制器输出的难度值 [0,100] |
+| 专注度 (%) | 大脑当前注意力水平，100%=最佳状态 |
+| 最佳难度 | 大脑此刻的理论最优难度 Optimal(t) |
+| 误差 (%) | (目标专注度 - 实际专注度) / 目标 × 100%，0% 为完美追踪 |
+""")
