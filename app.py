@@ -71,7 +71,7 @@ class MockBrain:
 
 class MockPIDController:
     def __init__(self):
-        self.Kp, self.Ki, self.Kd = 2.0, 0.1, 0.5
+        self.Kp, self.Ki, self.Kd = 3.0, 3.0, 3.0
         self.deadband = 0.01
         self._integral = 0.0
         self._prev_error = 0.0
@@ -98,9 +98,9 @@ class MockPIDController:
 
 class MockDiscretePIDController:
     def __init__(self):
-        self.Kp, self.Ki, self.Kd = 2.0, 0.1, 0.5
+        self.Kp, self.Ki, self.Kd = 3.0, 1.0, 2.0
         self.deadband = 0.01
-        self.levels = 10
+        self.levels = 8
         self._integral = 0.0
         self._prev_error = 0.0
 
@@ -218,8 +218,8 @@ class MockBayesianOptimizer:
     """
 
     def __init__(self):
-        self.kappa = 2.0
-        self.window_size = 20
+        self.kappa = 0.5
+        self.window_size = 10
         self.n_candidates = 21
         self.rbf_lengthscale = 15.0
         self._candidates = np.linspace(0.0, 100.0, self.n_candidates)
@@ -398,10 +398,10 @@ def compute_metrics(history):
 
 defaults = {
     "controller_type": "PID 控制器",
-    "Kp": 2.0, "Ki": 0.1, "Kd": 0.5, "deadband": 0.01,
-    "quant_levels": 10,
-    "Ke": 0.1, "Kec": 0.1, "Ku": 10.0,
-    "kappa": 2.0, "window_size": 20,
+    "Kp": 3.0, "Ki": 3.0, "Kd": 3.0, "deadband": 0.01,
+    "quant_levels": 8,
+    "Ke": 0.1, "Kec": 0.2, "Ku": 20.0,
+    "kappa": 0.5, "window_size": 10,
     "optimal_0": 40, "delta_max": 40, "lambda_": 0.05, "C": 400, "noise_std": 0.02,
     "target_attention": 0.95,
     "sim_steps": 200,

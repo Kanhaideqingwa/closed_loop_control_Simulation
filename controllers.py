@@ -88,8 +88,8 @@ class PIDController(BaseController):
 
     def __init__(
         self,
-        Kp: float = 5.0,
-        Ki: float = 2.0,
+        Kp: float = 3.0,
+        Ki: float = 3.0,
         Kd: float = 3.0,
         deadband: float = 0.01,
         output_limit: tuple[float, float] = (0.0, 100.0),
@@ -278,10 +278,10 @@ class DiscretePIDController(PIDController):
 
     def __init__(
         self,
-        levels: int = 10,
-        Kp: float = 5.0,
-        Ki: float = 2.0,
-        Kd: float = 3.0,
+        levels: int = 8,
+        Kp: float = 3.0,
+        Ki: float = 1.0,
+        Kd: float = 2.0,
         deadband: float = 0.01,
         output_limit: tuple[float, float] = (0.0, 100.0),
         adaptive: bool = False,
@@ -389,17 +389,23 @@ class FuzzyController(BaseController):
 
     def __init__(
         self,
-        e_range: tuple[float, float] = (-1.0, 1.0),
-        de_range: tuple[float, float] = (-0.5, 0.5),
+        e_range: tuple[float, float] = (-10.0, 10.0),
+        de_range: tuple[float, float] = (-2.5, 2.5),
         rules: list[list[str]] | None = None,
         output_centers: dict[str, float] | None = None,
+        dither_amplitude: float = 10.0,
+        patience: int = 20,
+        incremental: bool = True,
     ):
         """
         参数:
-            e_range:        误差的论域范围 (min, max)
-            de_range:       误差变化率的论域范围 (min, max)
-            rules:          5x5 模糊规则矩阵
-            output_centers: 输出模糊集中心值字典
+            e_range:          误差的论域范围 (min, max)
+            de_range:         误差变化率的论域范围 (min, max)
+            rules:            5x5 模糊规则矩阵
+            output_centers:   输出模糊集中心值字典
+            dither_amplitude: 探索噪声幅度 (0=关闭)，用于跳出局部最优
+            patience:         容忍步数，连续大误差超过此步数后触发探索 (0=关闭)
+            incremental:      增量模式，True=输出ΔD并累加，False=直接输出绝对D
         """
         self.e_range = e_range
         self.de_range = de_range
@@ -408,16 +414,34 @@ class FuzzyController(BaseController):
             output_centers if output_centers is not None
             else self.DEFAULT_OUTPUT_CENTERS
         )
+        self.dither_amplitude = dither_amplitude
+        self.patience = patience
+        self.incremental = incremental
 
         # 预计算输入隶属度函数参数（三角形的三个顶点 a, b, c）
         self._e_mfs = self._build_memberships(e_range)
         self._de_mfs = self._build_memberships(de_range)
 
         self._prev_error = 0.0
+        self._stuck_counter = 0
+        self._rng = np.random.default_rng()
+        # 自适应方向估计状态
+        self._direction = 1.0
+        self._last_D: float | None = None
+        self._last_feedback: float | None = None
+        self._dA_dD_smooth = 0.0
+        # 增量模式累加器
+        self._u = 50.0
 
     def reset(self):
         """重置前一时刻误差记录。"""
         self._prev_error = 0.0
+        self._stuck_counter = 0
+        self._direction = 1.0
+        self._last_D = None
+        self._last_feedback = None
+        self._dA_dD_smooth = 0.0
+        self._u = 50.0
 
     def set_params(self, **kwargs):
         """动态修改模糊控制器参数。
@@ -428,12 +452,13 @@ class FuzzyController(BaseController):
         注意: 修改 e_range / de_range 后会自动重建隶属度函数。
         """
         for key, value in kwargs.items():
-            if key in ("e_range", "de_range", "rules", "output_centers"):
+            if key in ("e_range", "de_range", "rules", "output_centers",
+                        "dither_amplitude", "patience", "incremental"):
                 setattr(self, key, value)
             else:
                 raise AttributeError(
                     f"FuzzyController 没有参数 '{key}'。"
-                    f"可用参数: e_range, de_range, rules, output_centers"
+                    f"可用参数: e_range, de_range, rules, output_centers, dither_amplitude, patience, incremental"
                 )
         # 若论域变化则重建隶属度函数
         if "e_range" in kwargs:
@@ -532,9 +557,29 @@ class FuzzyController(BaseController):
             难度控制量 D ∈ [0, 100]
         """
         # 1. 计算误差及变化率
-        e = setpoint - feedback
-        de = (e - self._prev_error) / dt if dt > 0 else 0.0
-        self._prev_error = e
+        e_raw = setpoint - feedback
+        de_raw = (e_raw - self._prev_error) / dt if dt > 0 else 0.0
+
+        # 自适应方向估计：感知当前处于曲线左侧还是右侧
+        if hasattr(self, '_last_D') and self._last_D is not None and current_D is not None:
+            dD = current_D - self._last_D
+            dA = feedback - (self._last_feedback if hasattr(self, '_last_feedback') and self._last_feedback is not None else feedback)
+            if abs(dD) > 0.5:
+                sensitivity = dA / dD
+                self._dA_dD_smooth = 0.6 * getattr(self, '_dA_dD_smooth', 0.0) + 0.4 * sensitivity
+                if self._dA_dD_smooth < -0.05:
+                    self._direction = -1.0
+                elif self._dA_dD_smooth > 0.05:
+                    self._direction = 1.0
+
+        self._last_D = current_D if current_D is not None else self._last_D
+        self._last_feedback = feedback
+        self._prev_error = e_raw
+
+        # 应用方向到误差
+        direction = getattr(self, '_direction', 1.0)
+        e = direction * e_raw
+        de = direction * de_raw
 
         # 2. 模糊化
         e_fuzzy = self._fuzzify(e, self._e_mfs)
@@ -568,13 +613,35 @@ class FuzzyController(BaseController):
             denominator += activation
 
         if denominator > 0:
-            u = numerator / denominator
+            fuzzy_out = numerator / denominator
         else:
             # 无规则激活时保持中间值
-            u = 50.0
+            fuzzy_out = 50.0
 
-        # 5. 限幅
-        return float(np.clip(u, 0.0, 100.0))
+        # 5. 探索抖动: 连续大误差时注入随机噪声跳出局部最优
+        if self.dither_amplitude > 0 and self.patience > 0:
+            if abs(e_raw) > 0.03:
+                self._stuck_counter += 1
+            else:
+                self._stuck_counter = max(0, self._stuck_counter - 1)
+
+            if self._stuck_counter >= self.patience:
+                fuzzy_out += self._rng.uniform(-self.dither_amplitude, self.dither_amplitude)
+                self._stuck_counter = 0  # 重置防止持续抖动
+
+        # 6. 增量模式: 模糊输出为ΔD，累加到当前D
+        if self.incremental:
+            # 将 [0,100] 映射为 [-50, 50] 的增量
+            delta = (fuzzy_out - 50.0) * 2.0  # 映射到 [-100, 100]
+            # 缩放增量（误差小时增量也小）
+            if abs(e_raw) < 0.05:
+                delta *= 0.3
+            candidate = self._u + delta
+            self._u = np.clip(candidate, 0.0, 100.0)
+            return float(self._u)
+
+        # 7. 限幅（绝对模式）
+        return float(np.clip(fuzzy_out, 0.0, 100.0))
 
 
 # ============================================================================
@@ -603,8 +670,8 @@ class BayesianOptimizer(BaseController):
 
     def __init__(
         self,
-        kappa: float = 2.0,
-        window_size: int = 20,
+        kappa: float = 0.5,
+        window_size: int = 10,
         n_candidates: int = 21,
         rbf_lengthscale: float = 15.0,
     ):
