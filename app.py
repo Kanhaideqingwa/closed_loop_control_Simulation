@@ -607,7 +607,7 @@ fig1.add_trace(
 )
 fig1.add_trace(
     go.Scatter(
-        x=df['t'], y=df['attention'] * 100 * 100,
+        x=df['t'], y=df['attention'] * 100,
         name="实际专注度",
         mode="lines",
         line=dict(color="#17becf", width=2),
