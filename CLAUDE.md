@@ -25,7 +25,7 @@ streamlit run app.py
 - **PID 默认非自适应** (`adaptive=False`)：增量式 PID，Kp=5/Ki=2/Kd=3/deadband=0.01。非自适应模式在倒U型曲线上表现优异(err~0.016)
 - **自适应方向估计** (`adaptive=True` 可选)：通过 dA/dD 平滑估计判断曲线侧，含卡死检测安全网。阈值 ±0.05，|dD|>=0.5 才更新
 - **离散 PID** (`adaptive=False` 默认)：量化公式 `100/(levels-1)`，levels=10 默认
-- **贝叶斯优化**：RBF 核简化 GP + UCB 采集函数，窗口20，kappa=2.0。探索能力最强
+- **贝叶斯优化**：RBF 核简化 GP + UCB 采集函数，窗口10，kappa=0.5。采样效率最高，3.86%稳态误差
 - **模糊控制**：5×5 Mamdani 规则表，三角形隶属度，重心法去模糊化
 
 ## 控制器统一接口
