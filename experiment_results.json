@@ -1,0 +1,172 @@
+{
+  "BO-UCB": {
+    "avg": {
+      "steady_error": 0.019940629398490384,
+      "cumulative_regret": 9.74144032601318,
+      "exploration_ratio": 0.08695652173913043,
+      "convergence_time": 2.0
+    },
+    "std": {
+      "steady_error": 0.0010695553155276984,
+      "cumulative_regret": 0.33013079703750986,
+      "exploration_ratio": 0.009459622490789934,
+      "convergence_time": 0.0
+    },
+    "raw": [
+      {
+        "steady_error": 0.019104594178008985,
+        "cumulative_regret": 9.350029463943102,
+        "exploration_ratio": 0.0802675585284281,
+        "convergence_time": 2
+      },
+      {
+        "steady_error": 0.019266993816528414,
+        "cumulative_regret": 9.716742337113088,
+        "exploration_ratio": 0.0802675585284281,
+        "convergence_time": 2
+      },
+      {
+        "steady_error": 0.021450300200933765,
+        "cumulative_regret": 10.157549176983348,
+        "exploration_ratio": 0.10033444816053512,
+        "convergence_time": 2
+      }
+    ]
+  },
+  "epsilon-Greedy": {
+    "avg": {
+      "steady_error": 0.12543547619278286,
+      "cumulative_regret": 70.31700866053774,
+      "exploration_ratio": 0.2697881828316611,
+      "convergence_time": 299.3333333333333
+    },
+    "std": {
+      "steady_error": 0.030826822474756904,
+      "cumulative_regret": 13.747971480048896,
+      "exploration_ratio": 0.04099169746008971,
+      "convergence_time": 0.4714045207910317
+    },
+    "raw": [
+      {
+        "steady_error": 0.16382416460390703,
+        "cumulative_regret": 78.95369931472257,
+        "exploration_ratio": 0.2408026755852843,
+        "convergence_time": 299
+      },
+      {
+        "steady_error": 0.08834781123922987,
+        "cumulative_regret": 50.91338041822315,
+        "exploration_ratio": 0.2408026755852843,
+        "convergence_time": 300
+      },
+      {
+        "steady_error": 0.12413445273521172,
+        "cumulative_regret": 81.0839462486675,
+        "exploration_ratio": 0.3277591973244147,
+        "convergence_time": 299
+      }
+    ]
+  },
+  "UCB1-Bandit": {
+    "avg": {
+      "steady_error": 0.17895532349556967,
+      "cumulative_regret": 84.09746134783083,
+      "exploration_ratio": 0.9732441471571907,
+      "convergence_time": 299.6666666666667
+    },
+    "std": {
+      "steady_error": 0.006431783954220758,
+      "cumulative_regret": 0.42321178843826085,
+      "exploration_ratio": 0.009459622490789927,
+      "convergence_time": 0.4714045207910317
+    },
+    "raw": [
+      {
+        "steady_error": 0.1863204443458225,
+        "cumulative_regret": 83.72718048360625,
+        "exploration_ratio": 0.9866220735785953,
+        "convergence_time": 300
+      },
+      {
+        "steady_error": 0.1706502082144642,
+        "cumulative_regret": 83.87537777770173,
+        "exploration_ratio": 0.9665551839464883,
+        "convergence_time": 300
+      },
+      {
+        "steady_error": 0.17989531792642233,
+        "cumulative_regret": 84.6898257821845,
+        "exploration_ratio": 0.9665551839464883,
+        "convergence_time": 299
+      }
+    ]
+  },
+  "Thompson-Sampling": {
+    "avg": {
+      "steady_error": 0.3108091526505522,
+      "cumulative_regret": 92.9748269913419,
+      "exploration_ratio": 0.08807134894091416,
+      "convergence_time": 299.6666666666667
+    },
+    "std": {
+      "steady_error": 0.17324564376505128,
+      "cumulative_regret": 47.17817187607189,
+      "exploration_ratio": 0.024778272877249576,
+      "convergence_time": 0.4714045207910317
+    },
+    "raw": [
+      {
+        "steady_error": 0.4339206262950481,
+        "cumulative_regret": 131.08055317552657,
+        "exploration_ratio": 0.11036789297658862,
+        "convergence_time": 300
+      },
+      {
+        "steady_error": 0.4327030094995933,
+        "cumulative_regret": 121.35228201260642,
+        "exploration_ratio": 0.10033444816053512,
+        "convergence_time": 300
+      },
+      {
+        "steady_error": 0.0658038221570153,
+        "cumulative_regret": 26.491645785892707,
+        "exploration_ratio": 0.05351170568561873,
+        "convergence_time": 299
+      }
+    ]
+  },
+  "Linear-UCB": {
+    "avg": {
+      "steady_error": 0.06439914742431004,
+      "cumulative_regret": 82.8571419628682,
+      "exploration_ratio": 0.06354515050167224,
+      "convergence_time": 299.3333333333333
+    },
+    "std": {
+      "steady_error": 0.0011055772950142979,
+      "cumulative_regret": 0.3002933530009953,
+      "exploration_ratio": 0.0027307577957449013,
+      "convergence_time": 0.4714045207910317
+    },
+    "raw": [
+      {
+        "steady_error": 0.06429146828278176,
+        "cumulative_regret": 82.47683094351385,
+        "exploration_ratio": 0.06020066889632107,
+        "convergence_time": 299
+      },
+      {
+        "steady_error": 0.06310215183313306,
+        "cumulative_regret": 83.21096418633627,
+        "exploration_ratio": 0.06354515050167224,
+        "convergence_time": 300
+      },
+      {
+        "steady_error": 0.0658038221570153,
+        "cumulative_regret": 82.88363075875448,
+        "exploration_ratio": 0.06688963210702341,
+        "convergence_time": 299
+      }
+    ]
+  }
+}
